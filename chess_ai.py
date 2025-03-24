@@ -410,6 +410,20 @@ class ChessAI:
             # Small delay to prevent hogging CPU
             time.sleep(0.1)
     
+    def set_training_speed(self, speed):
+        """Set the speed of the training visualization."""
+        self.speed = speed
+    
+    def start_training(self, game, callback=None):
+        """Start the training process in a separate thread."""
+        self.game = game
+        self.callback = callback
+        self.running = True
+        self.speed = 0.5  # Default speed
+        self.thread = threading.Thread(target=self._training_loop)
+        self.thread.daemon = True
+        self.thread.start()
+    
     def stop_training(self):
         """Stop the training process."""
         self.running = False
