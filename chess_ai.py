@@ -251,7 +251,7 @@ class ChessAI:
             
             # Check for checkmate
             if self.is_checkmate(game_copy):
-                # The player who just moved won
+                # The player who just moved won (the opponent of the current turn)
                 winner = 'black' if game_copy.turn == 'white' else 'white'
                 
                 # Apply rewards/punishments based on game outcome
@@ -385,6 +385,9 @@ class ChessAI:
                             piece = game_copy.board[from_row][from_col]
                             game_copy.board[to_row][to_col] = piece
                             game_copy.board[from_row][from_col] = ' '
+                            
+                            # Important: Don't change the turn here
+                            # We're still evaluating if the current player can escape check
                             
                             # Check if king is still in check after the move
                             if not game_copy.is_king_in_check(color):
