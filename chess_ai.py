@@ -435,3 +435,41 @@ class ChessAI:
 # Function to create and return a ChessAI instance
 def create_chess_ai(game):
     return ChessAI(game)
+
+
+def is_checkmate(self, game):
+    """Check if the current position is a checkmate."""
+    color = game.turn
+    
+    # First, check if the king is in check
+    if not game.is_king_in_check(color):
+        return False
+        
+    # Then check if there are any valid moves that can get out of check
+    for from_row in range(8):
+        for from_col in range(8):
+            piece = game.get_piece(from_row, from_col)
+            if piece == ' ':
+                continue
+                
+            piece_color = 'white' if piece.isupper() else 'black'
+            if piece_color != color:
+                continue
+                
+            for to_row in range(8):
+                for to_col in range(8):
+                    if game.valid_move(from_row, from_col, to_row, to_col):
+                        # Try the move to see if it gets out of check
+                        game_copy = copy.deepcopy(game)
+                        
+                        # Make the move
+                        piece = game_copy.board[from_row][from_col]
+                        game_copy.board[to_row][to_col] = piece
+                        game_copy.board[from_row][from_col] = ' '
+                        
+                        # Check if king is still in check after the move
+                        if not game_copy.is_king_in_check(color):
+                            return False  # Found a move that gets out of check
+    
+    # No moves found that get out of check, it's checkmate
+    return True
