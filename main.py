@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import messagebox
+import copy  # Add this import
 
 # --- Game Logic with Piece-Specific Move Validation ---
 class ChessGame:
@@ -362,6 +363,24 @@ class NeuralNetworkPreview:
         self.draws_label = tk.Label(stats_frame, text="Draws: 0", font=("Helvetica", 12))
         self.draws_label.grid(row=3, column=0, padx=10, pady=5, sticky="w")
         
+        # Add game preview section
+        preview_frame = tk.Frame(main_frame)
+        preview_frame.pack(fill=tk.BOTH, expand=True, pady=10)
+        
+        preview_label = tk.Label(preview_frame, text="Game Preview", font=("Helvetica", 14, "bold"))
+        preview_label.pack(pady=5)
+        
+        # Create a mini chessboard for visualization
+        self.preview_canvas = tk.Canvas(preview_frame, width=320, height=320, bg="white")
+        self.preview_canvas.pack(pady=10)
+        
+        # Move info
+        self.move_info = tk.Label(preview_frame, text="Last move: None", font=("Helvetica", 12))
+        self.move_info.pack(pady=5)
+        
+        self.eval_info = tk.Label(preview_frame, text="Evaluation: 0.0", font=("Helvetica", 12))
+        self.eval_info.pack(pady=5)
+        
         # Canvas for network visualization
         self.canvas = tk.Canvas(main_frame, width=400, height=200, bg="white")
         self.canvas.pack(fill=tk.BOTH, expand=True, pady=10)
@@ -382,15 +401,70 @@ class NeuralNetworkPreview:
         self.use_ai_button = tk.Button(control_frame, text="Use AI for Next Move", command=self.use_ai_move)
         self.use_ai_button.pack(side=tk.LEFT, padx=5)
         
+        # Add speed control
+        speed_frame = tk.Frame(main_frame)
+        speed_frame.pack(fill=tk.X, pady=10)
+        
+        tk.Label(speed_frame, text="Training Speed:").pack(side=tk.LEFT, padx=5)
+        self.speed_var = tk.DoubleVar(value=0.5)
+        self.speed_slider = tk.Scale(speed_frame, from_=0.1, to=2.0, resolution=0.1, 
+                                     orient=tk.HORIZONTAL, variable=self.speed_var)
+        self.speed_slider.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+        
         # Reference to the main game
         self.game = None
         self.chess_ui = None
+        self.preview_game = ChessGame()  # Create a separate game instance for preview
+        
+        # Initialize the preview board
+        self.draw_preview_board()
     
-    def set_game_references(self, game, chess_ui):
-        """Set references to the game and UI."""
-        self.game = game
-        self.chess_ui = chess_ui
+    def draw_preview_board(self):
+        """Draw the preview chessboard."""
+        SQUARE_SIZE = 40
+        self.preview_canvas.delete("all")
+        
+        for row in range(8):
+            for col in range(8):
+                x1 = col * SQUARE_SIZE
+                y1 = row * SQUARE_SIZE
+                x2 = x1 + SQUARE_SIZE
+                y2 = y1 + SQUARE_SIZE
+                color = "#F0D9B5" if (row + col) % 2 == 0 else "#B58863"
+                self.preview_canvas.create_rectangle(x1, y1, x2, y2, fill=color, outline="black")
+                
+                piece = self.preview_game.get_piece(row, col)
+                if piece != ' ':
+                    self.preview_canvas.create_text(
+                        x1 + SQUARE_SIZE // 2,
+                        y1 + SQUARE_SIZE // 2,
+                        text=piece,
+                        font=("Helvetica", 16, "bold")
+                    )
     
+    def update_preview(self, from_row, from_col, to_row, to_col, evaluation):
+        """Update the preview board with the latest move."""
+        # Make the move on the preview board
+        piece = self.preview_game.board[from_row][from_col]
+        self.preview_game.board[to_row][to_col] = piece
+        self.preview_game.board[from_row][from_col] = ' '
+        self.preview_game.turn = 'black' if self.preview_game.turn == 'white' else 'white'
+        
+        # Update the board display
+        self.draw_preview_board()
+        
+        # Update move info
+        cols = {0: 'a', 1: 'b', 2: 'c', 3: 'd', 4: 'e', 5: 'f', 6: 'g', 7: 'h'}
+        from_square = f"{cols[from_col]}{8-from_row}"
+        to_square = f"{cols[to_col]}{8-to_row}"
+        
+        player = "White" if piece.isupper() else "Black"
+        self.move_info.config(text=f"Last move: {player} {piece} {from_square} → {to_square}")
+        self.eval_info.config(text=f"Evaluation: {evaluation:.2f}")
+        
+        # Update the window
+        self.window.update_idletasks()
+
     def draw_network_visualization(self):
         """Draw a simple visualization of the neural network."""
         self.canvas.delete("all")
@@ -453,10 +527,33 @@ class NeuralNetworkPreview:
         # Update the window
         self.window.update_idletasks()
     
+    def set_game_references(self, game, chess_ui):
+        """Set references to the main game and UI."""
+        self.game = game
+        self.chess_ui = chess_ui
+        # Reset the preview game to match the current game state
+        self.preview_game = copy.deepcopy(game)
+        self.draw_preview_board()
+        
+        # Update the speed setting in the AI if it exists
+        if self.chess_ai:
+            self.speed_slider.config(command=lambda val: self.update_speed(float(val)))
+    
+    def update_speed(self, speed):
+        """Update the training speed."""
+        if self.chess_ai and hasattr(self.chess_ai, 'set_training_speed'):
+            self.chess_ai.set_training_speed(speed)
+    
     def start_training(self):
         """Start the neural network training."""
         if self.chess_ai:
-            self.chess_ai.start_training(self.game, self.update_stats)
+            # Pass the update_training function that can handle move updates
+            def update_training(games_played, model1_wins, model2_wins, draws, from_row=None, from_col=None, to_row=None, to_col=None, evaluation=0.0):
+                self.update_stats(games_played, model1_wins, model2_wins, draws)
+                if from_row is not None:
+                    self.update_preview(from_row, from_col, to_row, to_col, evaluation)
+            
+            self.chess_ai.start_training(self.game, update_training)
             self.start_button.config(state=tk.DISABLED)
             self.stop_button.config(state=tk.NORMAL)
     
@@ -500,21 +597,70 @@ class NeuralNetworkPreview:
 def main():
     # Import the chess_ai module here to avoid circular imports
     import chess_ai
+    import sys
+    
+    # Check if any command-line arguments were provided
+    human_vs_ai_mode = len(sys.argv) > 1
     
     root = tk.Tk()
-    root.title("Chess Game with Neural Network")
     
-    game = ChessGame()
-    app = ChessUI(root, game)
-    
-    # Create the chess AI
-    chess_ai_instance = chess_ai.create_chess_ai(game)
-    
-    # Create the neural network preview window
-    nn_preview = NeuralNetworkPreview(root, chess_ai_instance)
-    nn_preview.set_game_references(game, app)
-    
-    root.mainloop()
+    if human_vs_ai_mode:
+        # Human vs AI mode
+        root.title("Chess Game - Human vs AI")
+        
+        game = ChessGame()
+        app = ChessUI(root, game)
+        
+        # Create the chess AI
+        chess_ai_instance = chess_ai.create_chess_ai(game)
+        
+        # Create the neural network preview window
+        nn_preview = NeuralNetworkPreview(root, chess_ai_instance)
+        nn_preview.set_game_references(game, app)
+        
+        root.mainloop()
+    else:
+        # Automatic AI training mode
+        root.title("Chess AI Training")
+        
+        game = ChessGame()
+        
+        # Create a minimal UI for training visualization
+        frame = tk.Frame(root, padx=20, pady=20)
+        frame.pack(fill=tk.BOTH, expand=True)
+        
+        title = tk.Label(frame, text="Chess AI Training Mode", font=("Helvetica", 18, "bold"))
+        title.pack(pady=10)
+        
+        # Create the chess AI
+        chess_ai_instance = chess_ai.create_chess_ai(game)
+        
+        # Create the neural network preview window with game visualization
+        nn_preview = NeuralNetworkPreview(root, chess_ai_instance)
+        nn_preview.set_game_references(game, None)
+        
+        # Define update function for training stats and game preview
+        def update_training(games_played, model1_wins, model2_wins, draws, from_row=None, from_col=None, to_row=None, to_col=None, evaluation=0.0):
+            nn_preview.update_stats(games_played, model1_wins, model2_wins, draws)
+            if from_row is not None:
+                nn_preview.update_preview(from_row, from_col, to_row, to_col, evaluation)
+            root.update_idletasks()
+        
+        # Start training automatically
+        chess_ai_instance.start_training(game, update_training)
+        
+        # Add a stop button
+        def stop_training():
+            chess_ai_instance.stop_training()
+            root.destroy()
+        
+        stop_button = tk.Button(frame, text="Stop Training", command=stop_training)
+        stop_button.pack(pady=10)
+        
+        root.protocol("WM_DELETE_WINDOW", stop_training)  # Handle window close
+        root.mainloop()
 
 if __name__ == '__main__':
     main()
+
+# Modify the _training_loop method in chess_ai.py to call update_preview

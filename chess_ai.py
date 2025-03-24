@@ -5,6 +5,7 @@ import time
 import random
 import copy
 import os
+import inspect  # Add this import
 from tensorflow.keras.models import Sequential, clone_model, load_model
 from tensorflow.keras.layers import Dense, Flatten, Conv2D, Input
 from tensorflow.keras.optimizers import Adam
@@ -96,9 +97,48 @@ class ChessAI:
         return input_tensor.reshape(1, 8, 8, 12)  # Add batch dimension
     
     def evaluate_position(self, board, model):
-        """Evaluate a chess position using the neural network."""
+        """Evaluate a chess position using the neural network and additional heuristics."""
+        # Base evaluation from neural network
         board_input = self.board_to_input(board)
-        return model.predict(board_input, verbose=0)[0][0]
+        base_score = model.predict(board_input, verbose=0)[0][0]
+        
+        # Additional rewards/punishments based on game state
+        reward = 0
+        
+        # Check for checkmate opportunities
+        game_copy = copy.deepcopy(self.game)
+        game_copy.board = board
+        
+        # Reward for putting opponent in check
+        if game_copy.is_king_in_check('black' if game_copy.turn == 'white' else 'white'):
+            reward += 0.5
+        
+        # Reward for material advantage (proportional to piece values)
+        piece_values = {
+            'P': 1, 'p': 1,    # Pawns
+            'T': 5, 't': 5,    # Rooks
+            'C': 3, 'c': 3,    # Knights
+            'F': 3, 'f': 3,    # Bishops
+            'Q': 9, 'q': 9,    # Queens
+            'K': 0, 'k': 0     # Kings (not counted for material)
+        }
+        
+        material_score = 0
+        for row in range(8):
+            for col in range(8):
+                piece = board[row][col]
+                if piece != ' ':
+                    if piece.isupper():  # White pieces (positive)
+                        material_score += piece_values.get(piece, 0)
+                    else:  # Black pieces (negative)
+                        material_score -= piece_values.get(piece, 0)
+        
+        # Normalize material score and add to reward
+        material_reward = material_score * 0.1  # Scale down the material advantage
+        reward += material_reward
+        
+        # Combine base evaluation with rewards
+        return base_score + reward
     
     def get_best_move(self, game, model, depth=2):
         """Find the best move using minimax with neural network evaluation."""
@@ -159,7 +199,7 @@ class ChessAI:
         return best_move
     
     def play_game(self):
-        """Play a game between the two models."""
+        """Play a game between the two models with enhanced rewards/punishments."""
         game_copy = copy.deepcopy(self.game)
         game_copy.turn = 'white'  # Reset to white's turn
         
@@ -168,6 +208,10 @@ class ChessAI:
         
         moves_count = 0
         max_moves = 200  # Prevent infinite games
+        
+        # Track captured pieces for reward calculation
+        white_captures = []
+        black_captures = []
         
         while moves_count < max_moves:
             # Determine which model to use based on whose turn it is
@@ -180,7 +224,15 @@ class ChessAI:
                 # No valid moves - checkmate or stalemate
                 break
                 
-            from_row, from_col, to_row, to_col, _ = best_move
+            from_row, from_col, to_row, to_col, score = best_move
+            
+            # Check if this move captures a piece (for reward)
+            target_piece = game_copy.board[to_row][to_col]
+            if target_piece != ' ':
+                if game_copy.turn == 'white':
+                    white_captures.append(target_piece)
+                else:
+                    black_captures.append(target_piece)
             
             # Make the move
             piece = game_copy.board[from_row][from_col]
@@ -188,29 +240,102 @@ class ChessAI:
             game_copy.board[from_row][from_col] = ' '
             game_copy.turn = 'black' if game_copy.turn == 'white' else 'white'
             
+            # Update the preview if callback is provided
+            if self.callback and len(inspect.signature(self.callback).parameters) >= 5:
+                self.callback(self.games_played, self.model_wins, self.opponent_wins, self.draws, 
+                             from_row, from_col, to_row, to_col, score)
+                # Add a small delay to make the visualization visible
+                time.sleep(self.speed if hasattr(self, 'speed') else 0.5)
+            
             moves_count += 1
             
             # Check for checkmate
             if self.is_checkmate(game_copy):
                 # The player who just moved won
                 winner = 'black' if game_copy.turn == 'white' else 'white'
+                
+                # Apply rewards/punishments based on game outcome
                 if winner == 'white':
                     self.model_wins += 1
+                    self._apply_reward(self.model, 20)  # Reward for winning
+                    self._apply_reward(self.opponent_model, -30)  # Punishment for losing
                 else:
                     self.opponent_wins += 1
+                    self._apply_reward(self.opponent_model, 20)  # Reward for winning
+                    self._apply_reward(self.model, -30)  # Punishment for losing
+                
+                # Apply additional rewards for captures
+                self._apply_capture_rewards(self.model, white_captures)
+                self._apply_capture_rewards(self.opponent_model, black_captures)
+                
                 return winner
+            
+            # Check for stalemate (no valid moves but not in check)
+            if self._is_stalemate(game_copy):
+                self.draws += 1
+                # Apply punishment for draw (both models)
+                self._apply_reward(self.model, -40)
+                self._apply_reward(self.opponent_model, -40)
+                return 'draw'
                 
         # If we reach max moves, it's a draw
         self.draws += 1
+        # Apply punishment for draw (both models)
+        self._apply_reward(self.model, -40)
+        self._apply_reward(self.opponent_model, -40)
         return 'draw'
     
-    def is_checkmate(self, game):
-        """Check if the current position is checkmate."""
-        # If the king is in check and there are no valid moves, it's checkmate
+    def _apply_reward(self, model, reward_value):
+        """Apply a reward or punishment to a model by adjusting its weights."""
+        # Get current weights
+        weights = model.get_weights()
+        
+        # Apply a small adjustment based on the reward
+        # This is a simplified approach - in a more sophisticated system,
+        # you would use proper reinforcement learning algorithms
+        adjustment_factor = 0.001 * reward_value
+        
+        # Adjust weights (only the last layer for simplicity)
+        last_layer_weights = weights[-2]  # Weights of the last layer
+        last_layer_bias = weights[-1]     # Bias of the last layer
+        
+        # Apply adjustment
+        weights[-2] = last_layer_weights * (1 + adjustment_factor)
+        weights[-1] = last_layer_bias * (1 + adjustment_factor)
+        
+        # Set the adjusted weights
+        model.set_weights(weights)
+    
+    def _apply_capture_rewards(self, model, captures):
+        """Apply rewards for captured pieces."""
+        piece_values = {
+            'p': 1,  # Pawn
+            't': 5,  # Rook
+            'c': 3,  # Knight
+            'f': 3,  # Bishop
+            'q': 9,  # Queen
+            'k': 0,  # King (shouldn't happen in normal play)
+            'P': 1,  # Pawn
+            'T': 5,  # Rook
+            'C': 3,  # Knight
+            'F': 3,  # Bishop
+            'Q': 9,  # Queen
+            'K': 0   # King (shouldn't happen in normal play)
+        }
+        
+        total_reward = 0
+        for piece in captures:
+            total_reward += piece_values.get(piece, 0)
+        
+        # Apply the reward
+        self._apply_reward(model, total_reward)
+    
+    def _is_stalemate(self, game):
+        """Check if the current position is a stalemate (no valid moves but not in check)."""
         color = game.turn
         
-        # Check if king is in check
-        if not game.is_king_in_check(color):
+        # If king is in check, it's not stalemate
+        if game.is_king_in_check(color):
             return False
             
         # Check if there are any valid moves
@@ -227,9 +352,9 @@ class ChessAI:
                 for to_row in range(8):
                     for to_col in range(8):
                         if game.valid_move(from_row, from_col, to_row, to_col):
-                            return False  # Found a valid move, not checkmate
+                            return False  # Found a valid move, not stalemate
                             
-        return True  # No valid moves and king in check, it's checkmate
+        return True  # No valid moves and king not in check, it's stalemate
     
     def merge_models(self):
         """Merge the two models by averaging their weights."""
@@ -284,15 +409,6 @@ class ChessAI:
                 
             # Small delay to prevent hogging CPU
             time.sleep(0.1)
-    
-    def start_training(self, game, callback=None):
-        """Start the training process in a separate thread."""
-        self.game = game
-        self.callback = callback
-        self.running = True
-        self.thread = threading.Thread(target=self._training_loop)
-        self.thread.daemon = True
-        self.thread.start()
     
     def stop_training(self):
         """Stop the training process."""
