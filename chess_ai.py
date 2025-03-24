@@ -4,15 +4,21 @@ import threading
 import time
 import random
 import copy
-from tensorflow.keras.models import Sequential, clone_model
+import os
+from tensorflow.keras.models import Sequential, clone_model, load_model
 from tensorflow.keras.layers import Dense, Flatten, Conv2D, Input
 from tensorflow.keras.optimizers import Adam
 
 class ChessAI:
     def __init__(self, game=None):
         self.game = game
-        self.model = self._create_model()
-        self.opponent_model = self._create_model()
+        self.model_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'models')
+        os.makedirs(self.model_dir, exist_ok=True)
+        
+        # Try to load existing models, or create new ones if they don't exist
+        self.model = self._load_or_create_model('model')
+        self.opponent_model = self._load_or_create_model('opponent_model')
+        
         self.games_played = 0
         self.model_wins = 0
         self.opponent_wins = 0
@@ -35,6 +41,35 @@ class ChessAI:
         ])
         model.compile(optimizer=Adam(learning_rate=0.001), loss='mse')
         return model
+    
+    def _load_or_create_model(self, model_name):
+        """Load a model if it exists, otherwise create a new one."""
+        model_path = os.path.join(self.model_dir, f'{model_name}.h5')
+        if os.path.exists(model_path):
+            try:
+                print(f"Loading existing model from {model_path}")
+                return load_model(model_path)
+            except Exception as e:
+                print(f"Error loading model: {e}")
+                print("Creating new model instead")
+                return self._create_model()
+        else:
+            print(f"No existing model found at {model_path}, creating new model")
+            return self._create_model()
+    
+    def save_models(self):
+        """Save both models to disk."""
+        model_path = os.path.join(self.model_dir, 'model.h5')
+        opponent_path = os.path.join(self.model_dir, 'opponent_model.h5')
+        
+        try:
+            self.model.save(model_path)
+            self.opponent_model.save(opponent_path)
+            print(f"Models saved to {self.model_dir}")
+            return True
+        except Exception as e:
+            print(f"Error saving models: {e}")
+            return False
     
     def board_to_input(self, board):
         """Convert chess board to neural network input."""
@@ -221,6 +256,9 @@ class ChessAI:
             opponent_weights[i] += noise
         self.opponent_model.set_weights(opponent_weights)
         
+        # Save the merged models
+        self.save_models()
+        
         print("Models merged after 10 games")
         
     def start_training(self, game, callback=None):
@@ -237,27 +275,8 @@ class ChessAI:
         self.running = False
         if self.thread:
             self.thread.join(timeout=1.0)
-            
-    def _training_loop(self):
-        """Main training loop that runs in a separate thread."""
-        while self.running:
-            # Play a game between the two models
-            winner = self.play_game()
-            self.games_played += 1
-            
-            print(f"Game {self.games_played}: {winner} wins")
-            print(f"Stats - Model wins: {self.model_wins}, Opponent wins: {self.opponent_wins}, Draws: {self.draws}")
-            
-            # After every 10 games, merge the models
-            if self.games_played % 10 == 0:
-                self.merge_models()
-                
-            # Call the callback function if provided
-            if self.callback:
-                self.callback(self.games_played, self.model_wins, self.opponent_wins, self.draws)
-                
-            # Small delay to prevent hogging CPU
-            time.sleep(0.1)
+            # Save models when stopping training
+            self.save_models()
 
 # Function to create and return a ChessAI instance
 def create_chess_ai(game):
