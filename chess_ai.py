@@ -259,8 +259,32 @@ class ChessAI:
         # Save the merged models
         self.save_models()
         
-        print("Models merged after 10 games")
-        
+        print("Models merged successfully")
+    
+    def _training_loop(self):
+        """Main training loop that runs in a separate thread."""
+        while self.running:
+            # Play a game between the two models
+            winner = self.play_game()
+            self.games_played += 1
+            
+            print(f"Game {self.games_played}: {winner} wins")
+            print(f"Stats - Model wins: {self.model_wins}, Opponent wins: {self.opponent_wins}, Draws: {self.draws}")
+            
+            # After every 10 games, merge the models
+            if self.games_played % 10 == 0:
+                self.merge_models()
+            # Save models every 5 games
+            elif self.games_played % 5 == 0:
+                self.save_models()
+                
+            # Call the callback function if provided
+            if self.callback:
+                self.callback(self.games_played, self.model_wins, self.opponent_wins, self.draws)
+                
+            # Small delay to prevent hogging CPU
+            time.sleep(0.1)
+    
     def start_training(self, game, callback=None):
         """Start the training process in a separate thread."""
         self.game = game
@@ -269,7 +293,7 @@ class ChessAI:
         self.thread = threading.Thread(target=self._training_loop)
         self.thread.daemon = True
         self.thread.start()
-        
+    
     def stop_training(self):
         """Stop the training process."""
         self.running = False
