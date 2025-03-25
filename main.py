@@ -199,6 +199,33 @@ class ChessGame:
         self.turn = original_turn
         return False
 
+    def is_stalemate(self):
+        """Check if the current position is a stalemate (no legal moves but not in check)."""
+        # If the king is in check, it's not stalemate
+        if self.is_king_in_check(self.turn):
+            return False
+        
+        # Check if there are any legal moves
+        for from_row in range(8):
+            for from_col in range(8):
+                piece = self.get_piece(from_row, from_col)
+                if piece == ' ':
+                    continue
+                    
+                # Check if piece belongs to current player
+                color = 'white' if piece.isupper() else 'black'
+                if color != self.turn:
+                    continue
+                    
+                # Check all possible destinations
+                for to_row in range(8):
+                    for to_col in range(8):
+                        if self.valid_move(from_row, from_col, to_row, to_col):
+                            return False  # Found a legal move, not stalemate
+        
+        # No legal moves found and not in check = stalemate
+        return True
+
     def make_move(self, from_row, from_col, to_row, to_col):
         """Execute the move if valid; otherwise show error."""
         if self.valid_move(from_row, from_col, to_row, to_col):
@@ -206,6 +233,10 @@ class ChessGame:
             self.board[to_row][to_col] = piece
             self.board[from_row][from_col] = ' '
             self.turn = 'black' if self.turn == 'white' else 'white'
+            
+            # Check for stalemate after the move
+            if self.is_stalemate():
+                messagebox.showinfo("Game Over", "Stalemate - Game is a draw!")
         else:
             messagebox.showerror("Invalid Move", "This move is not allowed.")
 
