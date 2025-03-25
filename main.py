@@ -448,75 +448,164 @@ class NeuralNetworkPreview:
         piece = self.preview_game.board[from_row][from_col]
         self.preview_game.board[to_row][to_col] = piece
         self.preview_game.board[from_row][from_col] = ' '
+        
+        # Store the current turn before changing it
+        current_turn = self.preview_game.turn
+        
+        # Change turn
         self.preview_game.turn = 'black' if self.preview_game.turn == 'white' else 'white'
         
         # Update the board display
         self.draw_preview_board()
         
-        # Update move info
-        cols = {0: 'a', 1: 'b', 2: 'c', 3: 'd', 4: 'e', 5: 'f', 6: 'g', 7: 'h'}
-        from_square = f"{cols[from_col]}{8-from_row}"
-        to_square = f"{cols[to_col]}{8-to_row}"
-        
-        player = "White" if piece.isupper() else "Black"
-        self.move_info.config(text=f"Last move: {player} {piece} {from_square} → {to_square}")
-        self.eval_info.config(text=f"Evaluation: {evaluation:.2f}")
+        # Check for checkmate and display it if present
+        if self.chess_ai and self.chess_ai.is_checkmate(self.preview_game):
+            # The player who just moved won
+            winner = 'white' if current_turn == 'white' else 'black'
+            self.move_info.config(text=f"CHECKMATE! {winner.capitalize()} wins!")
+            self.eval_info.config(text=f"Evaluation: {evaluation:.2f}")
+            # Highlight the king in check
+            self.highlight_king_in_check()
+        else:
+            # Update move info
+            cols = {0: 'a', 1: 'b', 2: 'c', 3: 'd', 4: 'e', 5: 'f', 6: 'g', 7: 'h'}
+            from_square = f"{cols[from_col]}{8-from_row}"
+            to_square = f"{cols[to_col]}{8-to_row}"
+            
+            player = "White" if piece.isupper() else "Black"
+            self.move_info.config(text=f"Last move: {player} {piece} {from_square} → {to_square}")
+            self.eval_info.config(text=f"Evaluation: {evaluation:.2f}")
         
         # Update the window
         self.window.update_idletasks()
+    
+    def highlight_king_in_check(self):
+        """Highlight the king that is in check on the preview board."""
+        SQUARE_SIZE = 40
+        color = self.preview_game.turn
+        king_pos = self.preview_game.find_king(color)
+        
+        if king_pos:
+            row, col = king_pos
+            x1 = col * SQUARE_SIZE
+            y1 = row * SQUARE_SIZE
+            x2 = x1 + SQUARE_SIZE
+            y2 = y1 + SQUARE_SIZE
+            
+            # Draw a red border around the king in check
+            self.preview_canvas.create_rectangle(x1, y1, x2, y2, outline="red", width=3, tags="check_highlight")
 
     def draw_network_visualization(self):
-        """Draw a simple visualization of the neural network."""
+        """Draw a simple visualization of the neural network with active neurons."""
         self.canvas.delete("all")
         
         # Draw layers
         layer_spacing = 80
         node_radius = 15
         
+        # Generate some random activation values for visualization
+        # In a real implementation, you would get these from the model
+        if self.chess_ai and hasattr(self.chess_ai, 'model'):
+            # Create a sample input to get activations
+            sample_board = self.preview_game.board if hasattr(self, 'preview_game') else None
+            if sample_board:
+                # Get a simplified representation of activations
+                input_activations = [0.2, 0.7, 0.4, 0.9]  # Simplified for visualization
+                hidden1_activations = [0.5, 0.8, 0.3, 0.6]
+                hidden2_activations = [0.9, 0.2, 0.7, 0.4]
+                hidden3_activations = [0.6, 0.5, 0.8, 0.3]
+                output_activation = 0.7
+            else:
+                # Default random activations if no board is available
+                input_activations = [random.random() for _ in range(4)]
+                hidden1_activations = [random.random() for _ in range(4)]
+                hidden2_activations = [random.random() for _ in range(4)]
+                hidden3_activations = [random.random() for _ in range(4)]
+                output_activation = random.random()
+        else:
+            # Default random activations if no model is available
+            input_activations = [random.random() for _ in range(4)]
+            hidden1_activations = [random.random() for _ in range(4)]
+            hidden2_activations = [random.random() for _ in range(4)]
+            hidden3_activations = [random.random() for _ in range(4)]
+            output_activation = random.random()
+        
+        # Helper function to get color based on activation
+        def get_color(activation):
+            # Convert activation (0-1) to a color from blue (0) to red (1)
+            r = int(255 * activation)
+            b = int(255 * (1 - activation))
+            return f'#{r:02x}00{b:02x}'
+        
         # Input layer (8x8 grid)
         input_x = 50
-        for i in range(4):  # Just show 4 nodes to represent the input layer
+        for i, activation in enumerate(input_activations):
             y = 50 + i * 30
+            color = get_color(activation)
             self.canvas.create_oval(input_x-node_radius, y-node_radius, 
                                    input_x+node_radius, y+node_radius, 
-                                   fill="lightblue", outline="black")
+                                   fill=color, outline="black")
+            # Add activation text
+            self.canvas.create_text(input_x, y, text=f"{activation:.1f}", font=("Helvetica", 8, "bold"))
         
         # Hidden layers
-        for layer in range(3):
+        hidden_activations = [hidden1_activations, hidden2_activations, hidden3_activations]
+        for layer, layer_activations in enumerate(hidden_activations):
             x = input_x + (layer + 1) * layer_spacing
-            for i in range(4):  # Just show 4 nodes per hidden layer
+            for i, activation in enumerate(layer_activations):
                 y = 50 + i * 30
+                color = get_color(activation)
                 self.canvas.create_oval(x-node_radius, y-node_radius, 
                                        x+node_radius, y+node_radius, 
-                                       fill="lightgreen", outline="black")
+                                       fill=color, outline="black")
+                # Add activation text
+                self.canvas.create_text(x, y, text=f"{activation:.1f}", font=("Helvetica", 8, "bold"))
                 
                 # Connect to previous layer
                 if layer == 0:  # Connect to input layer
                     prev_x = input_x
+                    prev_activations = input_activations
                 else:  # Connect to previous hidden layer
                     prev_x = input_x + layer * layer_spacing
+                    prev_activations = hidden_activations[layer-1]
                 
-                for j in range(4):
+                for j, prev_activation in enumerate(prev_activations):
                     prev_y = 50 + j * 30
+                    # Line thickness based on product of activations
+                    line_width = 1 + 2 * activation * prev_activation
                     self.canvas.create_line(prev_x+node_radius, prev_y, 
                                            x-node_radius, y, 
-                                           fill="gray", arrow=tk.LAST)
+                                           fill="gray", width=line_width, arrow=tk.LAST)
         
         # Output layer (single node)
         output_x = input_x + 4 * layer_spacing
         output_y = 95  # Middle of the canvas
+        output_color = get_color(output_activation)
         self.canvas.create_oval(output_x-node_radius, output_y-node_radius, 
                                output_x+node_radius, output_y+node_radius, 
-                               fill="pink", outline="black")
+                               fill=output_color, outline="black")
+        # Add activation text
+        self.canvas.create_text(output_x, output_y, text=f"{output_activation:.1f}", font=("Helvetica", 8, "bold"))
         
         # Connect to last hidden layer
         last_hidden_x = input_x + 3 * layer_spacing
-        for i in range(4):
+        for i, activation in enumerate(hidden3_activations):
             y = 50 + i * 30
+            # Line thickness based on product of activations
+            line_width = 1 + 2 * activation * output_activation
             self.canvas.create_line(last_hidden_x+node_radius, y, 
                                    output_x-node_radius, output_y, 
-                                   fill="gray", arrow=tk.LAST)
-    
+                                   fill="gray", width=line_width, arrow=tk.LAST)
+        
+        # Add a legend
+        legend_y = 180
+        self.canvas.create_text(50, legend_y, text="Activation Legend:", anchor="w", font=("Helvetica", 10, "bold"))
+        for i in range(5):
+            val = i / 4
+            color = get_color(val)
+            self.canvas.create_rectangle(50 + i*40, legend_y+15, 50 + (i+1)*40, legend_y+25, fill=color, outline="black")
+            self.canvas.create_text(50 + i*40 + 20, legend_y+30, text=f"{val:.1f}", font=("Helvetica", 8))
+
     def update_stats(self, games_played, model1_wins, model2_wins, draws):
         """Update the statistics display."""
         self.games_label.config(text=f"Games played: {games_played}")
