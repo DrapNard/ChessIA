@@ -445,37 +445,23 @@ class NeuralNetworkPreview:
     
     def update_preview(self, from_row, from_col, to_row, to_col, evaluation):
         """Update the preview board with the latest move."""
-        # Make the move on the preview board
+        # Make a copy of the piece before moving
         piece = self.preview_game.board[from_row][from_col]
-        self.preview_game.board[to_row][to_col] = piece
-        self.preview_game.board[from_row][from_col] = ' '
         
-        # Store the current turn before changing it
-        current_turn = self.preview_game.turn
-        
-        # Change turn
-        self.preview_game.turn = 'black' if self.preview_game.turn == 'white' else 'white'
+        # Make the move using the game's make_move method instead of direct board manipulation
+        self.preview_game.make_move(from_row, from_col, to_row, to_col)
         
         # Update the board display
         self.draw_preview_board()
         
-        # Check for checkmate and display it if present
-        if self.chess_ai and self.chess_ai.is_checkmate(self.preview_game):
-            # The player who just moved won
-            winner = 'white' if current_turn == 'white' else 'black'
-            self.move_info.config(text=f"CHECKMATE! {winner.capitalize()} wins!")
-            self.eval_info.config(text=f"Evaluation: {evaluation:.2f}")
-            # Highlight the king in check
-            self.highlight_king_in_check()
-        else:
-            # Update move info
-            cols = {0: 'a', 1: 'b', 2: 'c', 3: 'd', 4: 'e', 5: 'f', 6: 'g', 7: 'h'}
-            from_square = f"{cols[from_col]}{8-from_row}"
-            to_square = f"{cols[to_col]}{8-to_row}"
-            
-            player = "White" if piece.isupper() else "Black"
-            self.move_info.config(text=f"Last move: {player} {piece} {from_square} → {to_square}")
-            self.eval_info.config(text=f"Evaluation: {evaluation:.2f}")
+        # Update move info
+        cols = {0: 'a', 1: 'b', 2: 'c', 3: 'd', 4: 'e', 5: 'f', 6: 'g', 7: 'h'}
+        from_square = f"{cols[from_col]}{8-from_row}"
+        to_square = f"{cols[to_col]}{8-to_row}"
+        
+        player = "White" if piece.isupper() else "Black"
+        self.move_info.config(text=f"Last move: {player} {piece} {from_square} → {to_square}")
+        self.eval_info.config(text=f"Evaluation: {evaluation:.2f}")
         
         # Update the window
         self.window.update_idletasks()
