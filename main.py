@@ -477,6 +477,9 @@ class NeuralNetworkPreview:
             self.move_info.config(text=f"Last move: {player} {piece} {from_square} → {to_square}")
             self.eval_info.config(text=f"Evaluation: {evaluation:.2f}")
         
+        # Update the neural network visualization with real activations based on the current board
+        self.draw_network_visualization()
+        
         # Update the window
         self.window.update_idletasks()
     
@@ -497,27 +500,66 @@ class NeuralNetworkPreview:
             self.preview_canvas.create_rectangle(x1, y1, x2, y2, outline="red", width=3, tags="check_highlight")
 
     def draw_network_visualization(self):
-        """Draw a simple visualization of the neural network with active neurons."""
+        """Draw a visualization of the neural network with active neurons based on current board."""
         self.canvas.delete("all")
         
         # Draw layers
         layer_spacing = 80
         node_radius = 15
         
-        # Generate some random activation values for visualization
-        # In a real implementation, you would get these from the model
-        if self.chess_ai and hasattr(self.chess_ai, 'model'):
-            # Create a sample input to get activations
-            sample_board = self.preview_game.board if hasattr(self, 'preview_game') else None
-            if sample_board:
-                # Get a simplified representation of activations
-                input_activations = [0.2, 0.7, 0.4, 0.9]  # Simplified for visualization
-                hidden1_activations = [0.5, 0.8, 0.3, 0.6]
-                hidden2_activations = [0.9, 0.2, 0.7, 0.4]
-                hidden3_activations = [0.6, 0.5, 0.8, 0.3]
-                output_activation = 0.7
-            else:
-                # Default random activations if no board is available
+        # Generate activation values from the current board state if possible
+        if self.chess_ai and hasattr(self.chess_ai, 'model') and hasattr(self, 'preview_game'):
+            # Get board representation
+            board_input = self.chess_ai.board_to_input(self.preview_game.board)
+            
+            try:
+                # Create a model that outputs intermediate layer activations
+                if not hasattr(self, 'activation_model'):
+                    base_model = self.chess_ai.model
+                    layer_outputs = [layer.output for layer in base_model.layers]
+                    self.activation_model = tf.keras.Model(inputs=base_model.input, 
+                                                          outputs=layer_outputs)
+                
+                # Get activations for all layers
+                activations = self.activation_model.predict(board_input, verbose=0)
+                
+                # Extract sample activations for visualization (simplified)
+                # For convolutional layers, take average activation across filters
+                conv_activations = []
+                dense_activations = []
+                
+                for i, activation in enumerate(activations):
+                    if len(activation.shape) == 4:  # Conv layer (batch, height, width, filters)
+                        # Take average across spatial dimensions and filters
+                        avg_activation = np.mean(activation, axis=(1, 2, 3))
+                        conv_activations.append(float(avg_activation[0]))
+                    elif len(activation.shape) == 2:  # Dense layer (batch, units)
+                        # Take first few neurons
+                        dense_layer = activation[0]
+                        if len(dense_layer) >= 4:
+                            dense_activations.append(dense_layer[:4])
+                        else:
+                            # If less than 4 neurons, pad with zeros
+                            padded = np.pad(dense_layer, (0, max(0, 4-len(dense_layer))))
+                            dense_activations.append(padded[:4])
+                
+                # Use these activations for visualization
+                input_activations = [abs(float(a)) for a in conv_activations[:1] * 4]
+                if len(dense_activations) >= 3:
+                    hidden1_activations = [abs(float(a)) for a in dense_activations[0]]
+                    hidden2_activations = [abs(float(a)) for a in dense_activations[1]]
+                    hidden3_activations = [abs(float(a)) for a in dense_activations[0]]  # Reuse first dense layer
+                else:
+                    # Fallback to random if not enough dense layers
+                    hidden1_activations = [random.random() for _ in range(4)]
+                    hidden2_activations = [random.random() for _ in range(4)]
+                    hidden3_activations = [random.random() for _ in range(4)]
+                
+                # Get the final output (evaluation score)
+                output_activation = (float(activations[-1][0][0]) + 1) / 2  # Convert from [-1,1] to [0,1]
+            except Exception as e:
+                print(f"Error getting activations: {e}")
+                # Fallback to random activations
                 input_activations = [random.random() for _ in range(4)]
                 hidden1_activations = [random.random() for _ in range(4)]
                 hidden2_activations = [random.random() for _ in range(4)]

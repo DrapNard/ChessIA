@@ -10,6 +10,20 @@ from tensorflow.keras.models import Sequential, clone_model, load_model
 from tensorflow.keras.layers import Dense, Flatten, Conv2D, Input
 from tensorflow.keras.optimizers import Adam
 
+# Configure TensorFlow to use GPU
+physical_devices = tf.config.list_physical_devices('GPU')
+if len(physical_devices) > 0:
+    print(f"Found {len(physical_devices)} GPU(s)")
+    for device in physical_devices:
+        # Enable memory growth to prevent TensorFlow from allocating all GPU memory at once
+        try:
+            tf.config.experimental.set_memory_growth(device, True)
+            print(f"Memory growth enabled for {device}")
+        except:
+            print(f"Could not set memory growth for {device}")
+else:
+    print("No GPU found. Using CPU.")
+
 class ChessAI:
     def __init__(self, game=None):
         self.game = game
