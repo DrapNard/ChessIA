@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import messagebox
 import copy  # Add this import
+import random
 
 # --- Game Logic with Piece-Specific Move Validation ---
 class ChessGame:
