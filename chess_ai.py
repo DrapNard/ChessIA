@@ -10,19 +10,54 @@ from tensorflow.keras.models import Sequential, clone_model, load_model
 from tensorflow.keras.layers import Dense, Flatten, Conv2D, Input
 from tensorflow.keras.optimizers import Adam
 
-# Configure TensorFlow to use GPU
-physical_devices = tf.config.list_physical_devices('GPU')
-if len(physical_devices) > 0:
-    print(f"Found {len(physical_devices)} GPU(s)")
-    for device in physical_devices:
-        # Enable memory growth to prevent TensorFlow from allocating all GPU memory at once
-        try:
-            tf.config.experimental.set_memory_growth(device, True)
-            print(f"Memory growth enabled for {device}")
-        except:
-            print(f"Could not set memory growth for {device}")
-else:
-    print("No GPU found. Using CPU.")
+# Configure TensorFlow to use DirectML plugin with better error handling
+try:
+    # Import and enable DirectML plugin
+    print("Attempting to use DirectML plugin for GPU acceleration...")
+    
+    # Check if the plugin directory exists
+    plugin_dir = os.path.join(os.path.dirname(tf.__file__), 'plugins')
+    if not os.path.exists(plugin_dir):
+        os.makedirs(plugin_dir, exist_ok=True)
+        print(f"Created plugin directory: {plugin_dir}")
+    
+    # Try to import DirectML
+    import tensorflow_directml
+    
+    # Get available DirectML devices
+    physical_devices = tf.config.list_physical_devices('GPU')
+    if len(physical_devices) > 0:
+        print(f"Found {len(physical_devices)} DirectML compatible GPU(s)")
+        for device in physical_devices:
+            # Enable memory growth to prevent TensorFlow from allocating all GPU memory at once
+            try:
+                tf.config.experimental.set_memory_growth(device, True)
+                print(f"Memory growth enabled for {device}")
+            except Exception as e:
+                print(f"Could not set memory growth for {device}: {e}")
+        
+        # Set DirectML as the visible device
+        tf.config.set_visible_devices(physical_devices, 'GPU')
+        print("DirectML GPU acceleration enabled")
+    else:
+        print("No DirectML compatible GPUs found. Using CPU.")
+except (ImportError, ModuleNotFoundError) as e:
+    print(f"DirectML plugin import error: {e}")
+    print("Using CPU instead.")
+except Exception as e:
+    print(f"Error configuring DirectML: {e}")
+    print("Using CPU instead.")
+
+# Fallback to CPU if DirectML failed
+try:
+    # Ensure we're using CPU if DirectML failed
+    tf.config.set_visible_devices([], 'GPU')
+    print("TensorFlow configured to use CPU")
+except Exception as e:
+    print(f"Error configuring TensorFlow: {e}")
+
+# Remove the duplicate GPU configuration code
+# The previous block already handles both DirectML and fallback to CPU
 
 class ChessAI:
     def __init__(self, game=None):
