@@ -1,0 +1,71 @@
+2025-07-05 03:08:34,930 - __main__ - INFO - Starting Chess AI 3D v3.0 in train-3d mode
+2025-07-05 03:08:53,411 - __main__ - ERROR - Application error: cannot import name 'PositionEncoder' from 'neural_network' (/mnt/c/Users/DrapNard/ChessIA/neural_network.py)
+Traceback (most recent call last):
+  File "/mnt/c/Users/DrapNard/ChessIA/main_3d.py", line 774, in main
+    trainer = TrainingMode3D(config)
+  File "/mnt/c/Users/DrapNard/ChessIA/main_3d.py", line 331, in __init__
+    self.trainer = ChessTrainer3D(self.config)
+  File "/mnt/c/Users/DrapNard/ChessIA/chess_trainer_3d.py", line 64, in __init__
+    self.ai_model1 = ai_model or ChessAI3D(model_path="models/model1_3d.pth")
+  File "/mnt/c/Users/DrapNard/ChessIA/neural_network_3d.py", line 335, in __init__
+    from neural_network import PositionEncoder
+ImportError: cannot import name 'PositionEncoder' from 'neural_network' (/mnt/c/Users/DrapNard/ChessIA/neural_network.py)
+2025-07-05 03:11:39,475 - __main__ - INFO - Starting Chess AI 3D v3.0 in train-3d mode
+2025-07-05 03:11:59,564 - __main__ - ERROR - Application error: cannot import name 'PositionEncoder' from 'neural_network' (/mnt/c/Users/DrapNard/ChessIA/neural_network.py)
+Traceback (most recent call last):
+  File "/mnt/c/Users/DrapNard/ChessIA/main_3d.py", line 774, in main
+    trainer = TrainingMode3D(config)
+  File "/mnt/c/Users/DrapNard/ChessIA/main_3d.py", line 331, in __init__
+    self.trainer = ChessTrainer3D(self.config)
+  File "/mnt/c/Users/DrapNard/ChessIA/chess_trainer_3d.py", line 64, in __init__
+    self.ai_model1 = ai_model or ChessAI3D(model_path="models/model1_3d.pth")
+  File "/mnt/c/Users/DrapNard/ChessIA/neural_network_3d.py", line 335, in __init__
+    from neural_network import PositionEncoder
+ImportError: cannot import name 'PositionEncoder' from 'neural_network' (/mnt/c/Users/DrapNard/ChessIA/neural_network.py)
+2025-07-05 03:22:13,917 - __main__ - INFO - Starting Chess AI 3D v3.0 in train-3d mode
+2025-07-05 03:23:41,238 - __main__ - INFO - Starting Chess AI 3D v3.0 in web mode
+2025-07-05 03:24:01,568 - web_api_3d - INFO - Starting Chess AI 3D server on localhost:5000
+2025-07-05 03:49:13,870 - web_api_3d - INFO - Client connected: uM2LPyj3CFfx6ll9AAAB
+2025-07-05 03:49:28,576 - web_api_3d - INFO - Client disconnected: uM2LPyj3CFfx6ll9AAAB
+2025-07-05 03:49:29,791 - web_api_3d - INFO - Client connected: vkxDikA8dwoN3RBiAAAD
+2025-07-05 03:49:36,060 - web_api_3d - INFO - Client disconnected: vkxDikA8dwoN3RBiAAAD
+2025-07-05 03:49:37,258 - web_api_3d - INFO - Client connected: IYOLrGWf-vifvihyAAAF
+2025-07-05 03:50:16,319 - web_api_3d - INFO - Client disconnected: IYOLrGWf-vifvihyAAAF
+2025-07-05 03:50:17,574 - web_api_3d - INFO - Client connected: rDgbIroKsHseXJIkAAAH
+2025-07-05 03:51:07,022 - web_api_3d - INFO - Client disconnected: rDgbIroKsHseXJIkAAAH
+2025-07-05 03:51:08,263 - web_api_3d - INFO - Client connected: bN0bEnft7OdXshYGAAAJ
+2025-07-05 03:52:10,775 - web_api_3d - INFO - Client disconnected: bN0bEnft7OdXshYGAAAJ
+2025-07-05 03:52:11,930 - web_api_3d - INFO - Client connected: iifQdhOBePkkPFz1AAAL
+2025-07-05 03:52:12,163 - web_api_3d - INFO - Client connected: MAV9CJkCB1efyw_MAAAN
+2025-07-05 03:52:33,755 - web_api_3d - ERROR - Training start error: signal only works in main thread of the main interpreter
+2025-07-05 03:52:34,803 - web_api_3d - ERROR - Training start error: signal only works in main thread of the main interpreter
+2025-07-05 03:52:37,164 - web_api_3d - ERROR - Training start error: signal only works in main thread of the main interpreter
+2025-07-05 03:53:04,584 - web_api_3d - INFO - Client disconnected: iifQdhOBePkkPFz1AAAL
+2025-07-05 03:53:04,585 - web_api_3d - INFO - Client disconnected: MAV9CJkCB1efyw_MAAAN
+2025-07-05 03:53:04,851 - werkzeug - ERROR - Error on request:
+Traceback (most recent call last):
+  File "/mnt/c/Users/DrapNard/ChessIA/venv_wsl/lib/python3.10/site-packages/werkzeug/serving.py", line 370, in run_wsgi
+    execute(self.server.app)
+  File "/mnt/c/Users/DrapNard/ChessIA/venv_wsl/lib/python3.10/site-packages/werkzeug/serving.py", line 336, in execute
+    write(b"")
+  File "/mnt/c/Users/DrapNard/ChessIA/venv_wsl/lib/python3.10/site-packages/werkzeug/serving.py", line 261, in write
+    assert status_set is not None, "write() before start_response"
+AssertionError: write() before start_response
+2025-07-05 03:53:05,687 - web_api_3d - INFO - Client connected: _3X_tBaYaJYxOawKAAAP
+2025-07-05 03:53:05,929 - web_api_3d - INFO - Client connected: vVjY3PT16S7NRg3NAAAR
+2025-07-05 03:53:13,310 - web_api_3d - INFO - Client disconnected: _3X_tBaYaJYxOawKAAAP
+2025-07-05 03:53:13,311 - web_api_3d - INFO - Client disconnected: vVjY3PT16S7NRg3NAAAR
+2025-07-05 03:53:13,697 - werkzeug - ERROR - Error on request:
+Traceback (most recent call last):
+  File "/mnt/c/Users/DrapNard/ChessIA/venv_wsl/lib/python3.10/site-packages/werkzeug/serving.py", line 370, in run_wsgi
+    execute(self.server.app)
+  File "/mnt/c/Users/DrapNard/ChessIA/venv_wsl/lib/python3.10/site-packages/werkzeug/serving.py", line 336, in execute
+    write(b"")
+  File "/mnt/c/Users/DrapNard/ChessIA/venv_wsl/lib/python3.10/site-packages/werkzeug/serving.py", line 261, in write
+    assert status_set is not None, "write() before start_response"
+AssertionError: write() before start_response
+2025-07-05 03:53:18,731 - web_api_3d - INFO - Client connected: M3ZN0_8FLp87_UiTAAAU
+2025-07-05 03:53:18,732 - web_api_3d - INFO - Client connected: Bc0AOuDpE8yO9ogpAAAV
+2025-07-05 03:53:23,076 - web_api_3d - ERROR - Training start error: signal only works in main thread of the main interpreter
+2025-07-05 03:53:24,037 - web_api_3d - ERROR - Training start error: signal only works in main thread of the main interpreter
+2025-07-05 03:53:25,922 - web_api_3d - ERROR - Training start error: signal only works in main thread of the main interpreter

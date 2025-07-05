@@ -1,8 +1,60 @@
-torch
-torchvision
-numpy
-matplotlib
-pandas
-scikit-learn
-flask
-flask_socketio
+# Chess AI - Enhanced Neural Network Chess Engine
+# Requirements file for Python dependencies
+
+# Core ML/AI dependencies
+torch>=2.0.0
+numpy>=1.21.0
+scipy>=1.7.0
+
+# Web framework dependencies (optional)
+flask>=2.3.0
+flask-socketio>=5.3.0
+flask-cors>=4.0.0
+python-socketio>=5.8.0
+
+# Data validation and serialization
+marshmallow>=3.19.0
+
+# Development and testing
+pytest>=7.0.0
+pytest-cov>=4.0.0
+black>=23.0.0
+flake8>=6.0.0
+mypy>=1.0.0
+
+# GUI dependencies (optional - may need system packages)
+# tkinter is usually included with Python
+# For Linux: sudo apt-get install python3-tk
+# For macOS: included with Python
+# For Windows: included with Python
+
+# Additional utilities
+pathlib2>=2.3.0; python_version<"3.4"
+dataclasses>=0.6; python_version<"3.7"
+typing-extensions>=4.0.0
+
+# Optional: Enhanced performance
+# CUDA toolkit for GPU acceleration (install separately)
+# Intel MKL for optimized CPU operations
+# tensorboard for training visualization
+
+# Installation instructions:
+# 1. Basic installation:
+#    pip install -r requirements.txt
+#
+# 2. For GPU support (NVIDIA):
+#    pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+#
+# 3. For development:
+#    pip install -r requirements.txt
+#    pip install pre-commit
+#    pre-commit install
+#
+# 4. For production (web server):
+#    pip install gunicorn eventlet
+#
+# System requirements:
+# - Python 3.8 or higher
+# - 4GB RAM minimum (8GB recommended)
+# - 1GB disk space for models
+# - GPU optional but recommended for training

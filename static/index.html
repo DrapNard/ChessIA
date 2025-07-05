@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Advanced Chess AI with Real-time 3D Neural Network Visualization">
+    <meta name="keywords" content="chess, AI, neural networks, 3D visualization, machine learning, pytorch, real-time">
+    <meta name="author" content="Chess AI 3D Project">
+    
+    <title>🧠 Chess AI 3D - Real-time Neural Network Visualization</title>
+    
+    <!-- Preload critical resources -->
+    <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" as="script">
+    <link rel="preload" href="style_3d.css" as="style">
+    
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="style_3d.css">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTggOEgyNFYyNEg4VjhaIiBmaWxsPSIjMzMzIi8+CjxwYXRoIGQ9Ik0xMiAxMkgyMFYyMEgxMlYxMloiIGZpbGw9IiNGRkYiLz4KPC9zdmc+">
+    
+    <!-- Meta tags for PWA -->
+    <meta name="theme-color" content="#667eea">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Chess AI 3D">
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://chess-ai-3d.com/">
+    <meta property="og:title" content="Chess AI 3D - Real-time Neural Network Visualization">
+    <meta property="og:description" content="Watch AI think in stunning 3D as neural networks process chess positions in real-time">
+    <meta property="og:image" content="/static/images/chess-ai-3d-preview.jpg">
+    
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="https://chess-ai-3d.com/">
+    <meta property="twitter:title" content="Chess AI 3D - Neural Network Visualization">
+    <meta property="twitter:description" content="Interactive 3D visualization of AI neural networks playing chess">
+    
+    <!-- CDN Dependencies -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/controls/OrbitControls.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/postprocessing/EffectComposer.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/postprocessing/RenderPass.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/postprocessing/UnrealBloomPass.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/postprocessing/ShaderPass.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/shaders/FXAAShader.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.4/socket.io.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js" defer></script>
+
+    <!-- Performance monitoring -->
+    <script>
+        window.performance = window.performance || {};
+        window.performance.mark = window.performance.mark || function() {};
+        window.performance.measure = window.performance.measure || function() {};
+    </script>
+</head>
+<body>
+    <!-- Performance marker -->
+    <script>performance.mark('body-start');</script>
+    
+    <!-- Main Application Container -->
+    <div class="app-container">
+        <!-- Header with branding and status -->
+        <header class="app-header">
+            <div class="header-content">
+                <div class="brand">
+                    <h1>🧠 Chess AI 3D</h1>
+                    <p class="tagline">Real-time Neural Network Visualization</p>
+                </div>
+                
+                <div class="header-controls">
+                    <div class="performance-indicator">
+                        <span class="perf-label">FPS:</span>
+                        <span id="header-fps">60</span>
+                    </div>
+                    <div class="connection-indicator">
+                        <div class="connection-dot" id="connection-dot"></div>
+                        <span id="connection-text">Connecting...</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Left Panel: Chess Game -->
+            <section class="game-section">
+                <div class="section-header">
+                    <h2>🎮 Chess Game</h2>
+                    <div class="game-status">
+                        <span id="turn-indicator" class="status-chip">White to move</span>
+                        <span id="evaluation-indicator" class="status-chip">+0.00</span>
+                    </div>
+                </div>
+                
+                <div class="game-container">
+                    <div class="board-wrapper">
+                        <div id="chess-board" class="chess-board" role="grid" aria-label="Chess board">
+                            <!-- Chess squares generated by JavaScript -->
+                        </div>
+                        
+                        <div class="board-controls">
+                            <div id="game-controls" class="game-controls">
+                                <!-- Game controls generated by JavaScript -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Center Panel: 3D Neural Network Visualization -->
+            <section class="neural-section">
+                <div class="section-header">
+                    <h2>🧠 Neural Network 3D</h2>
+                    <div class="neural-controls">
+                        <button id="neural-play-pause" class="btn-icon" title="Play/Pause Visualization">⏸️</button>
+                        <button id="neural-reset-view" class="btn-icon" title="Reset Camera">🎯</button>
+                        <button id="neural-settings" class="btn-icon" title="Settings">⚙️</button>
+                        <button id="neural-fullscreen" class="btn-icon" title="Fullscreen">🔍</button>
+                    </div>
+                </div>
+                
+                <div id="neural-3d-container" class="neural-3d-wrapper">
+                    <!-- 3D visualization container -->
+                    <div class="loading-3d" id="loading-3d">
+                        <div class="loading-spinner-3d">
+                            <div class="spinner-ring"></div>
+                            <div class="spinner-ring"></div>
+                            <div class="spinner-ring"></div>
+                        </div>
+                        <p>Initializing 3D Neural Network...</p>
+                    </div>
+                    
+                    <div class="neural-overlay-info" id="neural-overlay">
+                        <div class="layer-legend">
+                            <h4>Layer Types</h4>
+                            <div class="legend-item">
+                                <span class="legend-color input"></span>
+                                <span>Input Layer</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="legend-color conv"></span>
+                                <span>Convolutional</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="legend-color dense"></span>
+                                <span>Dense</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="legend-color output"></span>
+                                <span>Output</span>
+                            </div>
+                        </div>
+                        
+                        <div class="activation-scale">
+                            <h4>Activation Scale</h4>
+                            <div class="scale-gradient"></div>
+                            <div class="scale-labels">
+                                <span>0.0</span>
+                                <span>0.5</span>
+                                <span>1.0</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="neural-stats">
+                    <div class="stat-group">
+                        <div class="stat-item">
+                            <span class="stat-value" id="active-neurons-count">0</span>
+                            <span class="stat-label">Active Neurons</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value" id="network-activity">0%</span>
+                            <span class="stat-label">Network Activity</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value" id="inference-time">0ms</span>
+                            <span class="stat-label">Inference Time</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Right Panel: Training and Analytics -->
+            <section class="analytics-section">
+                <div class="section-tabs">
+                    <button class="tab-btn active" data-tab="training">🏋️ Training</button>
+                    <button class="tab-btn" data-tab="analytics">📊 Analytics</button>
+                    <button class="tab-btn" data-tab="settings">⚙️ Settings</button>
+                </div>
+
+                <!-- Training Tab -->
+                <div class="tab-content active" id="training-tab">
+                    <div id="training-panel" class="training-panel">
+                        <!-- Training controls generated by JavaScript -->
+                    </div>
+                    
+                    <div class="training-visualization">
+                        <h4>Training Progress</h4>
+                        <canvas id="training-chart" width="300" height="200"></canvas>
+                    </div>
+                </div>
+
+                <!-- Analytics Tab -->
+                <div class="tab-content" id="analytics-tab">
+                    <div class="analytics-grid">
+                        <div class="metric-card">
+                            <h4>Model Performance</h4>
+                            <div class="metric-value" id="model-accuracy">95.2%</div>
+                            <div class="metric-trend positive">+2.3%</div>
+                        </div>
+                        
+                        <div class="metric-card">
+                            <h4>Games Analyzed</h4>
+                            <div class="metric-value" id="games-analyzed">1,247</div>
+                            <div class="metric-trend positive">+15</div>
+                        </div>
+                        
+                        <div class="metric-card">
+                            <h4>Win Rate</h4>
+                            <div class="metric-value" id="win-rate">68.4%</div>
+                            <div class="metric-trend neutral">±0.1%</div>
+                        </div>
+                        
+                        <div class="metric-card">
+                            <h4>Avg Response</h4>
+                            <div class="metric-value" id="avg-response">145ms</div>
+                            <div class="metric-trend negative">+12ms</div>
+                        </div>
+                    </div>
+                    
+                    <div class="performance-chart">
+                        <h4>Real-time Performance</h4>
+                        <canvas id="performance-chart" width="350" height="180"></canvas>
+                    </div>
+                </div>
+
+                <!-- Settings Tab -->
+                <div class="tab-content" id="settings-tab">
+                    <div class="settings-groups">
+                        <div class="setting-group">
+                            <h4>3D Visualization</h4>
+                            
+                            <div class="setting-item">
+                                <label for="quality-setting">Rendering Quality</label>
+                                <select id="quality-setting">
+                                    <option value="low">Low (Better Performance)</option>
+                                    <option value="medium" selected>Medium (Balanced)</option>
+                                    <option value="high">High (Better Quality)</option>
+                                    <option value="ultra">Ultra (Best Quality)</option>
+                                </select>
+                            </div>
+                            
+                            <div class="setting-item">
+                                <label for="particle-density">Particle Density</label>
+                                <input type="range" id="particle-density" min="1" max="10" value="5">
+                                <span class="range-value">5</span>
+                            </div>
+                            
+                            <div class="setting-item checkbox-item">
+                                <label>
+                                    <input type="checkbox" id="auto-rotate-3d" checked>
+                                    <span class="checkmark"></span>
+                                    Auto-rotate Camera
+                                </label>
+                            </div>
+                            
+                            <div class="setting-item checkbox-item">
+                                <label>
+                                    <input type="checkbox" id="show-connections-3d" checked>
+                                    <span class="checkmark"></span>
+                                    Show Neural Connections
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="setting-group">
+                            <h4>Performance</h4>
+                            
+                            <div class="setting-item">
+                                <label for="update-frequency">Update Frequency</label>
+                                <input type="range" id="update-frequency" min="0.1" max="2" step="0.1" value="0.5">
+                                <span class="range-value">0.5s</span>
+                            </div>
+                            
+                            <div class="setting-item">
+                                <label for="fps-limit">FPS Limit</label>
+                                <select id="fps-limit">
+                                    <option value="30">30 FPS</option>
+                                    <option value="60" selected>60 FPS</option>
+                                    <option value="120">120 FPS</option>
+                                    <option value="unlimited">Unlimited</option>
+                                </select>
+                            </div>
+                            
+                            <div class="setting-item checkbox-item">
+                                <label>
+                                    <input type="checkbox" id="adaptive-quality" checked>
+                                    <span class="checkmark"></span>
+                                    Adaptive Quality
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="setting-group">
+                            <h4>Neural Network</h4>
+                            
+                            <div class="setting-item">
+                                <label for="layer-detail">Layer Detail Level</label>
+                                <select id="layer-detail">
+                                    <option value="1">Minimal</option>
+                                    <option value="2" selected>Standard</option>
+                                    <option value="3">Detailed</option>
+                                </select>
+                            </div>
+                            
+                            <div class="setting-item">
+                                <label for="animation-speed">Animation Speed</label>
+                                <input type="range" id="animation-speed" min="0.1" max="3" step="0.1" value="1">
+                                <span class="range-value">1.0x</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Modal for Neural Network Settings -->
+    <div class="modal-overlay" id="neural-settings-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Neural Network Settings</h3>
+                <button class="modal-close" id="close-neural-settings">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="advanced-settings">
+                    <div class="setting-category">
+                        <h4>Camera Controls</h4>
+                        <button class="setting-btn" id="reset-camera">Reset Camera Position</button>
+                        <button class="setting-btn" id="top-view">Top View</button>
+                        <button class="setting-btn" id="side-view">Side View</button>
+                        <button class="setting-btn" id="perspective-view">Perspective View</button>
+                    </div>
+                    
+                    <div class="setting-category">
+                        <h4>Visual Effects</h4>
+                        <label class="toggle-setting">
+                            <input type="checkbox" id="bloom-effect" checked>
+                            <span class="toggle-slider"></span>
+                            Bloom Effect
+                        </label>
+                        <label class="toggle-setting">
+                            <input type="checkbox" id="particle-effects" checked>
+                            <span class="toggle-slider"></span>
+                            Particle Effects
+                        </label>
+                        <label class="toggle-setting">
+                            <input type="checkbox" id="neural-waves" checked>
+                            <span class="toggle-slider"></span>
+                            Neural Wave Animation
+                        </label>
+                    </div>
+                    
+                    <div class="setting-category">
+                        <h4>Export Options</h4>
+                        <button class="setting-btn" id="export-screenshot">Export Screenshot</button>
+                        <button class="setting-btn" id="export-video">Record Video</button>
+                        <button class="setting-btn" id="export-data">Export Neural Data</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay">
+        <div class="loading-content">
+            <div class="loading-brain">
+                <div class="brain-neuron"></div>
+                <div class="brain-neuron"></div>
+                <div class="brain-neuron"></div>
+                <div class="brain-connection"></div>
+                <div class="brain-connection"></div>
+            </div>
+            <h2>Initializing Chess AI 3D</h2>
+            <p id="loading-status">Loading neural networks...</p>
+            <div class="loading-progress">
+                <div class="progress-bar" id="loading-progress-bar"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Connection Status -->
+    <div id="connection-status" class="connection-status">
+        <div class="status-indicator"></div>
+        <span class="status-text">Connecting...</span>
+    </div>
+
+    <!-- Notification Container -->
+    <div id="notification-container" class="notification-container"></div>
+
+    <!-- Fullscreen Neural Network View -->
+    <div id="neural-fullscreen" class="neural-fullscreen">
+        <div class="fullscreen-header">
+            <h2>Neural Network 3D Visualization</h2>
+            <button id="exit-fullscreen" class="btn-icon">✕</button>
+        </div>
+        <div id="fullscreen-neural-container"></div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="neural_3d_visualizer.js"></script>
+    <script src="main.js"></script>
+    <script src="app_3d.js"></script>
+    
+    <!-- Tab functionality -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Tab switching
+            const tabButtons = document.querySelectorAll('.tab-btn');
+            const tabContents = document.querySelectorAll('.tab-content');
+            
+            tabButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    const targetTab = button.getAttribute('data-tab');
+                    
+                    // Remove active class from all tabs and contents
+                    tabButtons.forEach(btn => btn.classList.remove('active'));
+                    tabContents.forEach(content => content.classList.remove('active'));
+                    
+                    // Add active class to clicked tab and corresponding content
+                    button.classList.add('active');
+                    document.getElementById(`${targetTab}-tab`).classList.add('active');
+                });
+            });
+            
+            // Range input updates
+            const rangeInputs = document.querySelectorAll('input[type="range"]');
+            rangeInputs.forEach(input => {
+                const updateValue = () => {
+                    const valueSpan = input.nextElementSibling;
+                    if (valueSpan && valueSpan.classList.contains('range-value')) {
+                        let value = input.value;
+                        if (input.id === 'animation-speed') {
+                            value += 'x';
+                        } else if (input.id === 'update-frequency') {
+                            value += 's';
+                        }
+                        valueSpan.textContent = value;
+                    }
+                };
+                
+                input.addEventListener('input', updateValue);
+                updateValue(); // Initialize
+            });
+            
+            // Modal functionality
+            const modalTriggers = document.querySelectorAll('[data-modal]');
+            const modals = document.querySelectorAll('.modal-overlay');
+            const modalCloses = document.querySelectorAll('.modal-close');
+            
+            modalTriggers.forEach(trigger => {
+                trigger.addEventListener('click', () => {
+                    const modalId = trigger.getAttribute('data-modal');
+                    const modal = document.getElementById(modalId);
+                    if (modal) {
+                        modal.classList.add('active');
+                    }
+                });
+            });
+            
+            modalCloses.forEach(close => {
+                close.addEventListener('click', () => {
+                    close.closest('.modal-overlay').classList.remove('active');
+                });
+            });
+            
+            // Click outside modal to close
+            modals.forEach(modal => {
+                modal.addEventListener('click', (e) => {
+                    if (e.target === modal) {
+                        modal.classList.remove('active');
+                    }
+                });
+            });
+            
+            // Performance monitoring
+            performance.mark('dom-ready');
+            performance.measure('page-load', 'body-start', 'dom-ready');
+            
+            const loadTime = performance.getEntriesByName('page-load')[0];
+            console.log(`Page loaded in ${loadTime.duration.toFixed(2)}ms`);
+        });
+    </script>
+</body>
+</html>
