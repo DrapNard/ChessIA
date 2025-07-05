@@ -1,73 +1,82 @@
 import numpy as np
-import tensorflow as tf
+import torch
+import torch.nn as nn
+import torch.optim as optim
 import threading
 import time
 import random
 import copy
 import os
-import inspect  # Add this import
-from tensorflow.keras.models import Sequential, clone_model, load_model
-from tensorflow.keras.layers import Dense, Flatten, Conv2D, Input
-from tensorflow.keras.optimizers import Adam
+import inspect
 
-# Configure TensorFlow to use DirectML plugin with better error handling
-try:
-    # Import and enable DirectML plugin
-    print("Attempting to use DirectML plugin for GPU acceleration...")
+# Configure PyTorch to use GPU if available
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+print(f"Using device: {device}")
+
+if torch.cuda.is_available():
+    print(f"GPU: {torch.cuda.get_device_name(0)}")
+    print(f"CUDA version: {torch.version.cuda}")
+    # Enable mixed precision for better performance
+    torch.backends.cudnn.benchmark = True
+else:
+    print("CUDA not available, using CPU")
+
+class ChessNet(nn.Module):
+    """Neural network model for chess position evaluation."""
     
-    # Check if the plugin directory exists
-    plugin_dir = os.path.join(os.path.dirname(tf.__file__), 'plugins')
-    if not os.path.exists(plugin_dir):
-        os.makedirs(plugin_dir, exist_ok=True)
-        print(f"Created plugin directory: {plugin_dir}")
-    
-    # Try to import DirectML
-    import tensorflow_directml
-    
-    # Get available DirectML devices
-    physical_devices = tf.config.list_physical_devices('GPU')
-    if len(physical_devices) > 0:
-        print(f"Found {len(physical_devices)} DirectML compatible GPU(s)")
-        for device in physical_devices:
-            # Enable memory growth to prevent TensorFlow from allocating all GPU memory at once
-            try:
-                tf.config.experimental.set_memory_growth(device, True)
-                print(f"Memory growth enabled for {device}")
-            except Exception as e:
-                print(f"Could not set memory growth for {device}: {e}")
+    def __init__(self):
+        super(ChessNet, self).__init__()
         
-        # Set DirectML as the visible device
-        tf.config.set_visible_devices(physical_devices, 'GPU')
-        print("DirectML GPU acceleration enabled")
-    else:
-        print("No DirectML compatible GPUs found. Using CPU.")
-except (ImportError, ModuleNotFoundError) as e:
-    print(f"DirectML plugin import error: {e}")
-    print("Using CPU instead.")
-except Exception as e:
-    print(f"Error configuring DirectML: {e}")
-    print("Using CPU instead.")
-
-# Fallback to CPU if DirectML failed
-try:
-    # Ensure we're using CPU if DirectML failed
-    tf.config.set_visible_devices([], 'GPU')
-    print("TensorFlow configured to use CPU")
-except Exception as e:
-    print(f"Error configuring TensorFlow: {e}")
-
-# Remove the duplicate GPU configuration code
-# The previous block already handles both DirectML and fallback to CPU
+        # Convolutional layers
+        self.conv1 = nn.Conv2d(12, 64, kernel_size=3, padding=1)
+        self.conv2 = nn.Conv2d(64, 128, kernel_size=3, padding=1)
+        self.conv3 = nn.Conv2d(128, 128, kernel_size=3, padding=1)
+        
+        # Fully connected layers
+        self.fc1 = nn.Linear(128 * 8 * 8, 256)
+        self.fc2 = nn.Linear(256, 128)
+        self.fc3 = nn.Linear(128, 1)
+        
+        # Activation functions
+        self.relu = nn.ReLU()
+        self.tanh = nn.Tanh()
+        self.dropout = nn.Dropout(0.2)
+        
+    def forward(self, x):
+        # Convolutional layers with ReLU activation
+        x = self.relu(self.conv1(x))
+        x = self.relu(self.conv2(x))
+        x = self.relu(self.conv3(x))
+        
+        # Flatten for fully connected layers
+        x = x.view(x.size(0), -1)
+        
+        # Fully connected layers
+        x = self.relu(self.fc1(x))
+        x = self.dropout(x)
+        x = self.relu(self.fc2(x))
+        x = self.dropout(x)
+        x = self.tanh(self.fc3(x))  # Output between -1 and 1
+        
+        return x
 
 class ChessAI:
     def __init__(self, game=None):
         self.game = game
+        self.device = device
         self.model_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'models')
         os.makedirs(self.model_dir, exist_ok=True)
         
-        # Try to load existing models, or create new ones if they don't exist
+        # Create models
         self.model = self._load_or_create_model('model')
         self.opponent_model = self._load_or_create_model('opponent_model')
+        
+        # Optimizers
+        self.optimizer = optim.Adam(self.model.parameters(), lr=0.001)
+        self.opponent_optimizer = optim.Adam(self.opponent_model.parameters(), lr=0.001)
+        
+        # Loss function
+        self.criterion = nn.MSELoss()
         
         self.games_played = 0
         self.model_wins = 0
@@ -79,42 +88,36 @@ class ChessAI:
         
     def _create_model(self):
         """Create a neural network model for chess evaluation."""
-        model = Sequential([
-            Input(shape=(8, 8, 12)),  # 8x8 board with 12 channels (6 piece types x 2 colors)
-            Conv2D(64, (3, 3), activation='relu', padding='same'),
-            Conv2D(128, (3, 3), activation='relu', padding='same'),
-            Conv2D(128, (3, 3), activation='relu', padding='same'),
-            Flatten(),
-            Dense(256, activation='relu'),
-            Dense(128, activation='relu'),
-            Dense(1, activation='tanh')  # Output between -1 and 1 (evaluation score)
-        ])
-        model.compile(optimizer=Adam(learning_rate=0.001), loss='mse')
+        model = ChessNet().to(self.device)
         return model
     
     def _load_or_create_model(self, model_name):
         """Load a model if it exists, otherwise create a new one."""
-        model_path = os.path.join(self.model_dir, f'{model_name}.h5')
+        model_path = os.path.join(self.model_dir, f'{model_name}.pth')
+        model = self._create_model()
+        
         if os.path.exists(model_path):
             try:
                 print(f"Loading existing model from {model_path}")
-                return load_model(model_path)
+                checkpoint = torch.load(model_path, map_location=self.device)
+                model.load_state_dict(checkpoint)
+                return model
             except Exception as e:
                 print(f"Error loading model: {e}")
                 print("Creating new model instead")
-                return self._create_model()
+                return model
         else:
             print(f"No existing model found at {model_path}, creating new model")
-            return self._create_model()
+            return model
     
     def save_models(self):
         """Save both models to disk."""
-        model_path = os.path.join(self.model_dir, 'model.h5')
-        opponent_path = os.path.join(self.model_dir, 'opponent_model.h5')
+        model_path = os.path.join(self.model_dir, 'model.pth')
+        opponent_path = os.path.join(self.model_dir, 'opponent_model.pth')
         
         try:
-            self.model.save(model_path)
-            self.opponent_model.save(opponent_path)
+            torch.save(self.model.state_dict(), model_path)
+            torch.save(self.opponent_model.state_dict(), opponent_path)
             print(f"Models saved to {self.model_dir}")
             return True
         except Exception as e:
@@ -123,8 +126,8 @@ class ChessAI:
     
     def board_to_input(self, board):
         """Convert chess board to neural network input."""
-        # Create a 8x8x12 tensor (12 channels for 6 piece types x 2 colors)
-        input_tensor = np.zeros((8, 8, 12))
+        # Create a 12x8x8 tensor (12 channels for 6 piece types x 2 colors)
+        input_tensor = np.zeros((12, 8, 8))
         
         # Mapping from piece symbol to channel index
         piece_to_channel = {
@@ -141,15 +144,20 @@ class ChessAI:
                 piece = board[row][col]
                 if piece != ' ':
                     channel = piece_to_channel.get(piece)
-                    input_tensor[row, col, channel] = 1
+                    if channel is not None:
+                        input_tensor[channel, row, col] = 1
                     
-        return input_tensor.reshape(1, 8, 8, 12)  # Add batch dimension
+        # Convert to PyTorch tensor and add batch dimension
+        tensor = torch.FloatTensor(input_tensor).unsqueeze(0).to(self.device)
+        return tensor
     
     def evaluate_position(self, board, model):
         """Evaluate a chess position using the neural network and additional heuristics."""
-        # Base evaluation from neural network
-        board_input = self.board_to_input(board)
-        base_score = model.predict(board_input, verbose=0)[0][0]
+        model.eval()
+        with torch.no_grad():
+            # Base evaluation from neural network
+            board_input = self.board_to_input(board)
+            base_score = model(board_input).cpu().item()
         
         # Additional rewards/punishments based on game state
         reward = 0
@@ -306,16 +314,16 @@ class ChessAI:
                 # Apply rewards/punishments based on game outcome
                 if winner == 'white':
                     self.model_wins += 1
-                    self._apply_reward(self.model, 20)  # Reward for winning
-                    self._apply_reward(self.opponent_model, -30)  # Punishment for losing
+                    self._apply_reward(self.model, self.optimizer, 20)  # Reward for winning
+                    self._apply_reward(self.opponent_model, self.opponent_optimizer, -30)  # Punishment for losing
                 else:
                     self.opponent_wins += 1
-                    self._apply_reward(self.opponent_model, 20)  # Reward for winning
-                    self._apply_reward(self.model, -30)  # Punishment for losing
+                    self._apply_reward(self.opponent_model, self.opponent_optimizer, 20)  # Reward for winning
+                    self._apply_reward(self.model, self.optimizer, -30)  # Punishment for losing
                 
                 # Apply additional rewards for captures
-                self._apply_capture_rewards(self.model, white_captures)
-                self._apply_capture_rewards(self.opponent_model, black_captures)
+                self._apply_capture_rewards(self.model, self.optimizer, white_captures)
+                self._apply_capture_rewards(self.opponent_model, self.opponent_optimizer, black_captures)
                 
                 return winner
             
@@ -323,39 +331,41 @@ class ChessAI:
             if self._is_stalemate(game_copy):
                 self.draws += 1
                 # Apply punishment for draw (both models)
-                self._apply_reward(self.model, -40)
-                self._apply_reward(self.opponent_model, -40)
+                self._apply_reward(self.model, self.optimizer, -40)
+                self._apply_reward(self.opponent_model, self.opponent_optimizer, -40)
                 return 'draw'
                 
         # If we reach max moves, it's a draw
         self.draws += 1
         # Apply punishment for draw (both models)
-        self._apply_reward(self.model, -40)
-        self._apply_reward(self.opponent_model, -40)
+        self._apply_reward(self.model, self.optimizer, -40)
+        self._apply_reward(self.opponent_model, self.opponent_optimizer, -40)
         return 'draw'
     
-    def _apply_reward(self, model, reward_value):
-        """Apply a reward or punishment to a model by adjusting its weights."""
-        # Get current weights
-        weights = model.get_weights()
+    def _apply_reward(self, model, optimizer, reward_value):
+        """Apply a reward or punishment to a model by adjusting its parameters."""
+        model.train()
         
-        # Apply a small adjustment based on the reward
-        # This is a simplified approach - in a more sophisticated system,
-        # you would use proper reinforcement learning algorithms
-        adjustment_factor = 0.001 * reward_value
+        # Create a dummy target based on the reward
+        dummy_input = torch.randn(1, 12, 8, 8).to(self.device)
+        current_output = model(dummy_input)
         
-        # Adjust weights (only the last layer for simplicity)
-        last_layer_weights = weights[-2]  # Weights of the last layer
-        last_layer_bias = weights[-1]     # Bias of the last layer
+        # Create target output based on reward
+        target_adjustment = reward_value * 0.001
+        target_output = current_output + target_adjustment
         
-        # Apply adjustment
-        weights[-2] = last_layer_weights * (1 + adjustment_factor)
-        weights[-1] = last_layer_bias * (1 + adjustment_factor)
+        # Compute loss and backpropagate
+        loss = self.criterion(current_output, target_output.detach())
         
-        # Set the adjusted weights
-        model.set_weights(weights)
+        optimizer.zero_grad()
+        loss.backward()
+        
+        # Apply gradient clipping to prevent exploding gradients
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+        
+        optimizer.step()
     
-    def _apply_capture_rewards(self, model, captures):
+    def _apply_capture_rewards(self, model, optimizer, captures):
         """Apply rewards for captured pieces."""
         piece_values = {
             'p': 1,  # Pawn
@@ -377,7 +387,8 @@ class ChessAI:
             total_reward += piece_values.get(piece, 0)
         
         # Apply the reward
-        self._apply_reward(model, total_reward)
+        if total_reward > 0:
+            self._apply_reward(model, optimizer, total_reward)
     
     def _is_stalemate(self, game):
         """Check if the current position is a stalemate (no valid moves but not in check)."""
@@ -435,9 +446,6 @@ class ChessAI:
                             game_copy.board[to_row][to_col] = piece
                             game_copy.board[from_row][from_col] = ' '
                             
-                            # Important: Don't change the turn here
-                            # We're still evaluating if the current player can escape check
-                            
                             # Check if king is still in check after the move
                             if not game_copy.is_king_in_check(color):
                                 return False  # Found a move that gets out of check
@@ -446,29 +454,36 @@ class ChessAI:
         return True
 
     def merge_models(self):
-        """Merge the two models by averaging their weights."""
-        model_weights = self.model.get_weights()
-        opponent_weights = self.opponent_model.get_weights()
+        """Merge the two models by averaging their parameters."""
+        # Get state dictionaries
+        model_state = self.model.state_dict()
+        opponent_state = self.opponent_model.state_dict()
         
-        merged_weights = []
-        for mw, ow in zip(model_weights, opponent_weights):
-            merged_weights.append((mw + ow) / 2.0)
-            
-        # Create a new model with the merged weights
-        merged_model = self._create_model()
-        merged_model.set_weights(merged_weights)
+        # Create merged state dictionary
+        merged_state = {}
+        for key in model_state.keys():
+            merged_state[key] = (model_state[key] + opponent_state[key]) / 2.0
         
-        # Update both models with the merged weights
-        self.model = merged_model
-        self.opponent_model = clone_model(merged_model)
-        self.opponent_model.compile(optimizer=Adam(learning_rate=0.001), loss='mse')
+        # Create new models with merged parameters
+        new_model = self._create_model()
+        new_model.load_state_dict(merged_state)
+        
+        new_opponent = self._create_model()
+        new_opponent.load_state_dict(merged_state)
         
         # Add some random variations to the opponent model to encourage exploration
-        opponent_weights = self.opponent_model.get_weights()
-        for i in range(len(opponent_weights)):
-            noise = np.random.normal(0, 0.1, opponent_weights[i].shape)
-            opponent_weights[i] += noise
-        self.opponent_model.set_weights(opponent_weights)
+        with torch.no_grad():
+            for param in new_opponent.parameters():
+                noise = torch.randn_like(param) * 0.1
+                param.add_(noise)
+        
+        # Update models
+        self.model = new_model
+        self.opponent_model = new_opponent
+        
+        # Update optimizers
+        self.optimizer = optim.Adam(self.model.parameters(), lr=0.001)
+        self.opponent_optimizer = optim.Adam(self.opponent_model.parameters(), lr=0.001)
         
         # Save the merged models
         self.save_models()

@@ -21,55 +21,12 @@ if %ERRORLEVEL% NEQ 0 (
     exit /b
 )
 
-echo Creating WSL setup script...
+echo Copying WSL setup script...
+copy /Y wsl_setup.sh %TEMP%\wsl_setup.sh
 
-REM Create a temporary script to run inside WSL
-echo #!/bin/bash > wsl_setup.sh
-echo echo "Setting up Python environment for TensorFlow in WSL..." >> wsl_setup.sh
-echo cd /mnt/c/Users/DrapNard/ChessIA >> wsl_setup.sh
-echo sudo apt-get update -y >> wsl_setup.sh
-echo sudo apt-get install -y python3-pip python3-venv python3-dev >> wsl_setup.sh
-echo python3 -m venv venv_wsl >> wsl_setup.sh
-echo source venv_wsl/bin/activate >> wsl_setup.sh
-echo pip install --upgrade pip >> wsl_setup.sh
-echo pip install tensorflow numpy matplotlib pandas scikit-learn >> wsl_setup.sh
-
-REM Check for NVIDIA GPU and install CUDA if available
-echo if [ -x "$(command -v nvidia-smi)" ]; then >> wsl_setup.sh
-echo     echo "NVIDIA GPU detected, installing CUDA support..." >> wsl_setup.sh
-echo     sudo apt-get install -y nvidia-cuda-toolkit >> wsl_setup.sh
-echo     pip install tensorflow-gpu >> wsl_setup.sh
-echo     echo "export LD_LIBRARY_PATH=\$LD_LIBRARY_PATH:/usr/local/cuda/lib64" >> ~/.bashrc >> wsl_setup.sh
-echo     echo "CUDA installation complete!" >> wsl_setup.sh
-echo else >> wsl_setup.sh
-echo     echo "No NVIDIA GPU detected, using CPU version of TensorFlow" >> wsl_setup.sh
-echo fi >> wsl_setup.sh
-
-REM Create a test script to verify TensorFlow installation
-echo echo "Creating TensorFlow test script..." >> wsl_setup.sh
-echo echo "import tensorflow as tf" > tf_test.py >> wsl_setup.sh
-echo echo "print('TensorFlow version:', tf.__version__)" >> tf_test.py >> wsl_setup.sh
-echo echo "print('GPU Available:', tf.config.list_physical_devices('GPU'))" >> tf_test.py >> wsl_setup.sh
-echo echo "print('TensorFlow installation successful!')" >> tf_test.py >> wsl_setup.sh
-echo python tf_test.py >> wsl_setup.sh
-
-REM Create a launcher script for the Chess AI
-echo echo "Creating Chess AI launcher script..." >> wsl_setup.sh
-echo echo "#!/bin/bash" > run_chess_ai.sh >> wsl_setup.sh
-echo echo "cd /mnt/c/Users/DrapNard/ChessIA" >> run_chess_ai.sh >> wsl_setup.sh
-echo echo "source venv_wsl/bin/activate" >> run_chess_ai.sh >> wsl_setup.sh
-echo echo "python main.py" >> run_chess_ai.sh >> wsl_setup.sh
-echo chmod +x run_chess_ai.sh >> wsl_setup.sh
-
-echo echo "Setup complete! You can now run your Chess AI in WSL with TensorFlow." >> wsl_setup.sh
-echo echo "To start the Chess AI, run: ./run_chess_ai.sh" >> wsl_setup.sh
-
-REM Make the script executable and run it in WSL
-wsl chmod +x wsl_setup.sh
+REM Run the setup script in WSL
 echo Running setup in WSL...
-wsl ./wsl_setup.sh
-
-REM Clean up
+wsl bash -c "cp %TEMP%\wsl_setup.sh ~/wsl_setup.sh && chmod +x ~/wsl_setup.sh && ~/wsl_setup.sh"
 
 echo.
 echo Setup complete! You can now run your Chess AI in WSL with TensorFlow.

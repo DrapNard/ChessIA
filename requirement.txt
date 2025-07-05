@@ -1,6 +1,8 @@
-tensorflow-cpu>=2.12
-tensorflow-directml-plugin
+torch
+torchvision
 numpy
 matplotlib
 pandas
 scikit-learn
+flask
+flask_socketio
