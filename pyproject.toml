@@ -1,0 +1,17 @@
+[build-system]
+requires = ["uv_build >= 0.12.1, <0.13.0"]
+build-backend = "uv_build"
+
+[project]
+name = "chessai"
+version = "0.0.1"
+readme = {file = "README", content-type = "text/markdown"}
+license = "MIT"
+requires-python = ">=3.13"
+dependencies = [
+  "python-chess",
+  "pytest",
+  "pytest-cov",
+  "ruff",
+  "mypy"
+]
